@@ -55,12 +55,39 @@ typedef struct{
     uint8_t dstAddr; ///< 目的地址
 }RdlcAddr_t;
 
-/// 类
+/// 类定义
 typedef void* Rdlc_t;
 
 // 基本接口类型定义
 typedef int (*RdlcOnParse_fptr) (Rdlc_t,RdlcAddr_t,const uint8_t*,uint16_t);///< (句柄,地址,载荷,长度)
 typedef int (*RdlcOnError_fptr) (Rdlc_t,int);
+
+/// 接口类型
+typedef struct{
+    RdlcMalloc_fptr portMalloc;
+    RdlcFree_fptr portFree;
+    RdlcPrintf_fptr portPrintf;
+}RdlcPort_t;
+
+/// 对象定义
+typedef struct{
+    uint8_t stateParse;
+    uint8_t stateEscape;
+
+    uint8_t *rxBuf;
+    uint16_t rxBufSize;
+
+    uint16_t rxIndexer;
+    uint16_t payloadSize;
+
+    uint16_t payloadMaxSize;
+    uint16_t payloadMaxEscapeSize;
+
+    RdlcOnParse_fptr cbParsed;
+    RdlcOnError_fptr cbError;
+    RdlcPort_t port;
+    RdlcLogLevel_t logLevel;
+}RdlcStaticHandle_t;
 
 /// 配置类型
 typedef struct{
@@ -70,15 +97,11 @@ typedef struct{
     RdlcOnError_fptr cbError;
 }RdlcConfig_t;
 
-/// 接口类型
-typedef struct{
-    RdlcMalloc_fptr portMalloc;
-    RdlcFree_fptr portFree;
-    RdlcPrintf_fptr portPrintf;
-}RdlcPort_t;
+
 
 // 构造函数和析构函数
 Rdlc_t xRdlcCreate(const RdlcConfig_t *config,const RdlcPort_t *port);
+Rdlc_t xRdlcCreateStatic(const RdlcConfig_t *config,const RdlcPort_t *port,RdlcStaticHandle_t* staticHandle,uint8_t *rxBuffer,uint16_t rxBufferSize);
 void   vRdlcDestroy(Rdlc_t protoHandle);
 
 // 对象方法1：解包

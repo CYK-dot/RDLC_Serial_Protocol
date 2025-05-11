@@ -28,6 +28,7 @@ extern "C" {
 
 extern "C" int RdlcTestReadWriteCallback(Rdlc_t handle,RdlcAddr_t addr,const uint8_t* data,uint16_t size)
 {
+    printf("Callback is triggered\n");
     ReadWriteMock.OnParsed(handle,addr,data,size);
     return 0;
 }
@@ -37,20 +38,20 @@ TEST(RdlcTestBasic, ReadWrite)
     const uint8_t expected[] = { 0x1,0x2,0x3,0x4,0x6,0x6 };
     const RdlcAddr_t expectAddr = {.srcAddr = 0x01, .dstAddr = 0x02};
 
-    // 创建实例
-    static const RdlcConfig_t config = {
+    // 创建动态实例
+    RdlcConfig_t config = {
         .msgMaxSize = sizeof(expected),
         .msgMaxEscapeSize = 0,
         .cbParsed = RdlcTestReadWriteCallback,
         .cbError = NULL,
     };
-    static const RdlcPort_t port = {
+    RdlcPort_t port = {
         .portMalloc = malloc,
         .portFree = free,
         .portPrintf = RdlcGtestVprintf
     };
     Rdlc_t handle = xRdlcCreate(&config, &port);
-    //vRdlcSetLogLevel(handle,RDLC_LOG_DEBUG);
+    vRdlcSetLogLevel(handle,RDLC_LOG_DEBUG);
     EXPECT_NE(handle, nullptr) << "rdlc: init handle failed";
 
     // 发送
@@ -64,6 +65,29 @@ TEST(RdlcTestBasic, ReadWrite)
     ASSERT_GT(err,RDLC_NOT_FINISH) << "rdlc: read not finish "<< err;
 
     vRdlcDestroy(handle);
+
+    // 创建静态实例
+    static RdlcStaticHandle_t staticHandle;
+    RdlcPort_t portStatic = {
+        .portMalloc = malloc,
+        .portFree = free,
+        .portPrintf = RdlcGtestVprintf,
+    };
+
+    static uint8_t staticRxBuffer[100];
+    Rdlc_t sHandle = xRdlcCreateStatic(&config,&portStatic,&staticHandle,staticRxBuffer,sizeof(staticRxBuffer));
+    EXPECT_NE(sHandle, nullptr) << "rdlc: init handle failed";
+    vRdlcSetLogLevel(sHandle,RDLC_LOG_DEBUG);
+
+    // 发送
+    uint8_t txBuf2[30];
+    len = xRdlcWriteBytes(sHandle,expectAddr,expected,sizeof(expected),txBuf2,sizeof(txBuf2));
+    ASSERT_GT(len,RDLC_OK) << "rdlc: write failed";
+
+    // 接收
+    EXPECT_CALL(ReadWriteMock, OnParsed(::testing::_,AddrEq(expectAddr.srcAddr,expectAddr.dstAddr),EqWithMessage(expected,sizeof(expected)),sizeof(expected)));
+    err = xRdlcReadBytes(sHandle,txBuf2,len);
+    ASSERT_GT(err,RDLC_NOT_FINISH) << "rdlc: read not finish "<< err;
 }
 
 

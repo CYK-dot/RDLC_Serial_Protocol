@@ -23,27 +23,7 @@
     #error "RDLC: You must define one CRC16 method."
 #endif
 
-/**
- *@brief RDLC对象的private成员
-**/
-typedef struct{
-    uint8_t stateParse;
-    uint8_t stateEscape;
 
-    uint8_t *rxBuf;
-    uint16_t rxBufSize;
-
-    uint16_t rxIndexer;
-    uint16_t payloadSize;
-
-    uint16_t payloadMaxSize;
-    uint16_t payloadMaxEscapeSize;
-
-    RdlcOnParse_fptr cbParsed;
-    RdlcOnError_fptr cbError;
-    RdlcPort_t port;
-    RdlcLogLevel_t logLevel;
-}RdlcStaticHandle_t;
 
 /**
  *@brief 日志调用
@@ -550,6 +530,48 @@ Rdlc_t xRdlcCreate(const RdlcConfig_t *config, const RdlcPort_t *port)
     memcpy(&handle->port, port, sizeof(RdlcPort_t));
     handle->logLevel = RDLC_LOG_NONE;
     return (Rdlc_t)handle;
+}
+/**
+ * @brief 使用静态方式创建一个RDLC协议实例
+ *
+ * @param config RDLC协议的配置，不应为NULL
+ * @param port   RDLC所需的硬件对接接口，可以为NULL
+ * @param staticHandle 静态实例所在的地址，请不要传入局部变量，要确保他的生命周期是全局的
+ * @param rxBuffer 接收缓冲区所在的地址，请不要传入局部变量，要确保他的生命周期是全局的
+ * @param rxBufferSize 接收缓冲区的大小
+ *
+ * @return Rdlc_t 成功则返回实例，失败则返回NULL
+ */
+Rdlc_t xRdlcCreateStatic(const RdlcConfig_t *config,const RdlcPort_t *port,
+                        RdlcStaticHandle_t* staticHandle,uint8_t *rxBuffer,uint16_t rxBufferSize)
+{
+    if (rxBuffer == NULL)
+        return NULL;
+
+    if (prvRxBufferEstimateSize(config->msgMaxSize) > rxBufferSize) {
+        return NULL;
+    }
+    memset(staticHandle, 0, sizeof(RdlcStaticHandle_t));
+    staticHandle->rxBufSize = rxBufferSize;
+    staticHandle->rxBuf = rxBuffer;
+    staticHandle->payloadMaxEscapeSize = config->msgMaxEscapeSize;
+    staticHandle->payloadMaxSize = config->msgMaxSize;
+    staticHandle->cbParsed  = config->cbParsed;
+    staticHandle->cbError   = config->cbError;
+    staticHandle->logLevel = RDLC_LOG_NONE;
+
+    if (port == NULL) {
+        staticHandle->port.portMalloc = NULL;
+        staticHandle->port.portFree = NULL;
+        staticHandle->port.portPrintf = NULL;
+    }
+    else{
+        staticHandle->port.portPrintf = port->portPrintf;
+        staticHandle->port.portFree = port->portFree;
+        staticHandle->port.portMalloc = port->portMalloc;
+    }
+
+    return (Rdlc_t)staticHandle;
 }
 /**
  * @brief 删除一个RDLC实例

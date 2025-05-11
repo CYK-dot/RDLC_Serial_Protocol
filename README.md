@@ -21,4 +21,7 @@ RDLC协议使用C语言面向对象的方式实现。对象类型为Rdlc_t，构
 - 在合适的位置（例如HAL_UART_RxCpltCallback）调用xRdlcReadByte/xRdlcReadBytes，让协议接收字节。
 - 当协议内的状态机完成字节接收后，会自动调用此前你注册的回调函数。
 
-## 注意事项
+## 参考代码
+- 提供ESP32在IDFv5.4下使用RDLC的例程。
+- 提供STM32在HAL库+CubeMX下的例程。
+- 提供STM32F103在标准库下的例程。由于CH32X035G8的BSP库和ST标准库相似，代码可以兼容。
