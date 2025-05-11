@@ -14,9 +14,11 @@ RDLC协议使用C语言面向对象的方式实现。对象类型为Rdlc_t，构
 
 ## 使用方式
 - 将rdlc.c和rdlc.h拷贝到您的项目中。
-- 注释或取消注释rdlc.h中有关日志的宏。关闭日志后，可以减小编译后生成文件的大小。
+- 根据需求修改rdlc.h中的配置宏。
 - 根据你的平台，编写对应的系统调用函数。例如FreeRTOS下使用pvPortMalloc/vPortFree。
 - 根据需求，编写协议回调函数，然后通过调用构造函数的方式，完成协议的初始化。
 - 在需要发送数据时，调用xRdlcWriteBytes把原始数据打包成帧，然后调用您的发送函数（例如HAL_UART_Transmit_IT）将帧发送出去。
 - 在合适的位置（例如HAL_UART_RxCpltCallback）调用xRdlcReadByte/xRdlcReadBytes，让协议接收字节。
 - 当协议内的状态机完成字节接收后，会自动调用此前你注册的回调函数。
+
+## 注意事项

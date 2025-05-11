@@ -364,10 +364,12 @@ static inline int prvTxBufferEstimateMessageSize(uint16_t bufferSize)
 }
 /**
  *@brief 转义状态机
+ *@param byte 转义前的字节
+ *@param isFrame 是否是帧头帧尾
  *@return 正数代表转义出的字符，负数代表尚未完成转义或出了问题
  *@addtogroup 状态机
 **/
-static inline int prvRxFsmEscape(uint8_t *stateEscape,uint8_t byte)
+static inline int prvRxFsmEscape(uint8_t *stateEscape,uint8_t byte,bool *isFrame)
 {
     switch(*stateEscape)
     {
@@ -375,9 +377,11 @@ static inline int prvRxFsmEscape(uint8_t *stateEscape,uint8_t byte)
         case RDLC_STATE_ESCAPE_WAIT:
             if (byte == BYTE_ESCAPE){
                 *stateEscape = RDLC_STATE_ESCAPE_GET;
+                *isFrame = false;
                 return RDLC_NOT_FINISH;
             }
             else {
+                *isFrame = false;
                 return byte;
             }
         break;
@@ -386,15 +390,19 @@ static inline int prvRxFsmEscape(uint8_t *stateEscape,uint8_t byte)
         case RDLC_STATE_ESCAPE_GET:
             *stateEscape = RDLC_STATE_ESCAPE_WAIT;
             if (byte == BYTE_ESCAPE) {
+                *isFrame = false;
                 return BYTE_ESCAPE;
             }
             else if (byte == BYTE_HEAD) {
+                *isFrame = true;
                 return BYTE_HEAD;
             }
             else if (byte == BYTE_TAIL) {
+                *isFrame = true;
                 return BYTE_TAIL;
             }
             else {
+                *isFrame = false;
                 return RDLC_ERR_NOT_ALLOWED;
             }
         break;
@@ -402,11 +410,13 @@ static inline int prvRxFsmEscape(uint8_t *stateEscape,uint8_t byte)
 }
 /**
  *@brief  带有冗余越界保护的解析状态机
+ *@param  byte 解转义后的字节
+ *@param  isFrame 是否是帧头帧尾
  *@return 1成功-1失败0尚未完成
  *@note   冗余保护：不仅在收到载荷长度时检查越界，也在接收的过程中检查越界
  *@addtogroup 状态机
 **/
-static inline int prvRxFsmParse(RdlcStaticHandle_t *handle,uint8_t byte)
+static inline int prvRxFsmParse(RdlcStaticHandle_t *handle,uint8_t byte,bool isFrame)
 {
     uint16_t crcFromBuf;
     uint16_t crcFromFrame;
@@ -417,7 +427,7 @@ static inline int prvRxFsmParse(RdlcStaticHandle_t *handle,uint8_t byte)
         case RDLC_STATE_PARSE_WAIT_HEAD:
             Log(handle,RDLC_LOG_DEBUG,"state=WaitHead,read=%#hhX",byte);
 
-            if (byte == BYTE_HEAD)
+            if ((byte == BYTE_HEAD) && (isFrame == true))
                 handle->stateParse = RDLC_STATE_PARSE_GET_SRCADDR;
         break;
 
@@ -425,21 +435,39 @@ static inline int prvRxFsmParse(RdlcStaticHandle_t *handle,uint8_t byte)
         case RDLC_STATE_PARSE_GET_SRCADDR:
             Log(handle,RDLC_LOG_DEBUG,"state=WaitSrcAddr,read=%#hhX",byte);
             prvRxBufferFeed(handle,byte);
-            handle->stateParse = RDLC_STATE_PARSE_GET_DSTADDR;
+
+            if (isFrame == false)
+                handle->stateParse = RDLC_STATE_PARSE_GET_DSTADDR;
+            else {
+                handle->stateParse = RDLC_STATE_PARSE_WAIT_HEAD;
+                prvRxBufferReset(handle);
+            }
         break;
 
         // 等待目标地址
         case RDLC_STATE_PARSE_GET_DSTADDR:
             Log(handle,RDLC_LOG_DEBUG,"state=WaitDstAddr,read=%#hhX",byte);
             prvRxBufferFeed(handle,byte);
-            handle->stateParse = RDLC_STATE_PARSE_GET_LENL;
+
+            if (isFrame == false)
+                handle->stateParse = RDLC_STATE_PARSE_GET_LENL;
+            else {
+                handle->stateParse = RDLC_STATE_PARSE_WAIT_HEAD;
+                prvRxBufferReset(handle);
+            }
         break;
 
         // 等待载荷长度低八位
         case RDLC_STATE_PARSE_GET_LENL:
             Log(handle,RDLC_LOG_DEBUG,"state=WaitPayloadLenL,read=%#hhX",byte);
             prvRxBufferFeed(handle,byte);
-            handle->stateParse = RDLC_STATE_PARSE_GET_LENH;
+
+            if (isFrame == false)
+                handle->stateParse = RDLC_STATE_PARSE_GET_LENH;
+            else {
+                handle->stateParse = RDLC_STATE_PARSE_WAIT_HEAD;
+                prvRxBufferReset(handle);
+            }
         break;
 
         // 等待载荷长度高八位
@@ -449,7 +477,12 @@ static inline int prvRxFsmParse(RdlcStaticHandle_t *handle,uint8_t byte)
             prvRxBufferFeed(handle,byte);
             handle->payloadSize = prvRxBufferGetPayloadLen(handle);
 
-            handle->stateParse = RDLC_STATE_PARSE_GET_PAYLOAD;
+            if (isFrame == false)
+                handle->stateParse = RDLC_STATE_PARSE_GET_PAYLOAD;
+            else {
+                handle->stateParse = RDLC_STATE_PARSE_WAIT_HEAD;
+                prvRxBufferReset(handle);
+            }
         break;
 
         // 等待载荷
