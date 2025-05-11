@@ -156,16 +156,17 @@ static inline int prvRxBufferEstimateMaxPayloadSize(uint16_t bufferSize)
     return bufferSize - 4;
 }
 /**
- *@brief 转义写入发送缓冲区
+ *@brief 转义写入发送缓冲区(帧中数据)
  *@addtogroup 发送缓冲区操作
 **/
-static inline int prvTxBufferFeed(RdlcStaticHandle_t *handle,uint8_t *buffer,uint16_t size,uint16_t *iter,uint8_t data)
+static inline int prvTxBufferFeedCommon(RdlcStaticHandle_t *handle,uint8_t *buffer,uint16_t size,uint16_t *iter,uint8_t data)
 {
     if (*iter == size) {
         Log(handle,RDLC_LOG_ERR,"TxBuffer overflow!");
         return RDLC_ERR_NOT_ALLOWED;
     }
-    if (data == BYTE_ESCAPE || data == BYTE_HEAD || data == BYTE_TAIL) {
+
+    if (data == BYTE_ESCAPE) {
         buffer[*iter] = BYTE_ESCAPE;
         (*iter)++;
         if (*iter == size) {
@@ -173,10 +174,34 @@ static inline int prvTxBufferFeed(RdlcStaticHandle_t *handle,uint8_t *buffer,uin
             return RDLC_ERR_NOT_ALLOWED;
         }
     }
+
     buffer[*iter] = data;
     (*iter)++;
     return RDLC_OK;
 }
+/**
+ *@brief 转义写入发送缓冲区(帧头帧尾数据)
+ *@addtogroup 发送缓冲区操作
+**/
+static inline int prvTxBufferFeedFrame(RdlcStaticHandle_t *handle,uint8_t *buffer,uint16_t size,uint16_t *iter,uint8_t frameData)
+{
+    if (*iter == size) {
+        Log(handle,RDLC_LOG_ERR,"TxBuffer overflow!");
+        return RDLC_ERR_NOT_ALLOWED;
+    }
+
+    buffer[*iter] = BYTE_ESCAPE;
+    (*iter)++;
+    if (*iter == size) {
+        Log(handle,RDLC_LOG_ERR,"TxBuffer overflow!");
+        return RDLC_ERR_NOT_ALLOWED;
+    }
+
+    buffer[*iter] = frameData;
+    (*iter)++;
+    return RDLC_OK;
+}
+
 /**
  *@brief 在发送缓冲区中的指定位置写入帧头
  *@addtogroup 发送缓冲区操作
@@ -185,19 +210,19 @@ static inline int prvTxBufferFeedHead(RdlcStaticHandle_t *handle,uint8_t *buffer
 {
     int err;
     // 包头
-    err = prvTxBufferFeed(handle,buffer,size,iter,BYTE_HEAD);
+    err = prvTxBufferFeedFrame(handle,buffer,size,iter,BYTE_HEAD);
     if (err != RDLC_OK) return err;
 
     // 控制字节
-    err = prvTxBufferFeed(handle,buffer,size,iter,ctrlByte);
+    err = prvTxBufferFeedCommon(handle,buffer,size,iter,ctrlByte);
     if (err != RDLC_OK) return err;
 
     // 载荷长度
     uint8_t payloadHigh = (payloadSize & 0xFF00) >> 8;
     uint8_t payloadLow  = (payloadSize & 0x00FF);
-    err = prvTxBufferFeed(handle,buffer,size,iter,payloadLow);
+    err = prvTxBufferFeedCommon(handle,buffer,size,iter,payloadLow);
     if (err != RDLC_OK) return err;
-    err = prvTxBufferFeed(handle,buffer,size,iter,payloadHigh);
+    err = prvTxBufferFeedCommon(handle,buffer,size,iter,payloadHigh);
     if (err != RDLC_OK) return err;
 
     return RDLC_OK;
@@ -211,7 +236,7 @@ static inline int prvTxBufferFeedPayload(RdlcStaticHandle_t *handle,uint8_t *buf
     // 提前预判是否会超出范围
     uint8_t count = 0;
     for(uint16_t i=0;i<payloadSize;i++)
-        if (payload[i] == BYTE_ESCAPE || payload[i] == BYTE_HEAD || payload[i] == BYTE_TAIL)
+        if (payload[i] == BYTE_ESCAPE)
             count++;
     if (*iter + count >= bufferSize) {
         Log(handle,RDLC_LOG_ERR,"TxBuffer feed payload overflow!");
@@ -219,7 +244,7 @@ static inline int prvTxBufferFeedPayload(RdlcStaticHandle_t *handle,uint8_t *buf
     }
 
     for(uint16_t i=0;i<payloadSize;i++)
-        prvTxBufferFeed(handle,buffer,bufferSize,iter,payload[i]);
+        prvTxBufferFeedCommon(handle,buffer,bufferSize,iter,payload[i]);
     return RDLC_OK;
 }
 /**
@@ -233,13 +258,13 @@ static inline int prvTxBufferFeedTail(RdlcStaticHandle_t *handle,uint8_t *buffer
     uint8_t crcLow  = (crc16 & 0x00FF);
     int err;
 
-    err = prvTxBufferFeed(handle,buffer,bufferSize,iter,crcLow);
+    err = prvTxBufferFeedCommon(handle,buffer,bufferSize,iter,crcLow);
     if (err != RDLC_OK) return err;
-    err = prvTxBufferFeed(handle,buffer,bufferSize,iter,crcHigh);
+    err = prvTxBufferFeedCommon(handle,buffer,bufferSize,iter,crcHigh);
     if (err != RDLC_OK) return err;
 
     // 包尾
-    err = prvTxBufferFeed(handle,buffer,bufferSize,iter,BYTE_TAIL);
+    err = prvTxBufferFeedFrame(handle,buffer,bufferSize,iter,BYTE_TAIL);
     if (err != RDLC_OK) return err;
     return RDLC_OK;
 }
