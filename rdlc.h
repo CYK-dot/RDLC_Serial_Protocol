@@ -8,6 +8,10 @@ extern "C" {
 #include <stddef.h>
 #include <stdarg.h>
 
+/// ≈‰÷√∫Í
+#define RDLC_CRC16_USE_CALCULATE  0
+#define RDLC_CRC16_USE_TABLE      1
+
 /// »’÷æ≤„¥Œ
 typedef enum{
     RDLC_LOG_DEBUG = 0,
