@@ -22,7 +22,7 @@ int RdlcGtestVprintf(RdlcLogLevel_t level,const char *fmt,va_list args)
 class RdlcMockCallback_t
 {
     public:
-        MOCK_METHOD(int, OnParsed, (Rdlc_t,const uint8_t*,uint16_t));
+        MOCK_METHOD(int, OnParsed, (Rdlc_t,RdlcAddr_t,const uint8_t*,uint16_t));
         //MOCK_METHOD(int,PortVprintf,(RdlcLogLevel_t,const char *,va_list));
 };
 
@@ -40,15 +40,16 @@ extern "C" {
     static ::testing::StrictMock<RdlcMockCallback_t> ReadWriteMock;
 }
 
-extern "C" int RdlcTestReadWriteCallback(Rdlc_t handle,const uint8_t* data,uint16_t size)
+extern "C" int RdlcTestReadWriteCallback(Rdlc_t handle,RdlcAddr_t addr,const uint8_t* data,uint16_t size)
 {
-    ReadWriteMock.OnParsed(handle,data, size);
+    ReadWriteMock.OnParsed(handle,addr,data,size);
     return 0;
 }
 
 TEST(RdlcTestBasic, ReadWrite)
 {
     const uint8_t expected[] = { 0x1,0x2,0x3,0x4,0x6,0x6 };
+    const RdlcAddr_t expectAddr = {.srcAddr = 0x01, .dstAddr = 0x02};
 
     // 创建实例
     static const RdlcConfig_t config = {
@@ -68,11 +69,11 @@ TEST(RdlcTestBasic, ReadWrite)
 
     // 发送
     uint8_t txBuf[30];
-    int len = xRdlcWriteBytes(handle,expected,sizeof(expected),txBuf,sizeof(txBuf));
+    int len = xRdlcWriteBytes(handle,expectAddr,expected,sizeof(expected),txBuf,sizeof(txBuf));
     ASSERT_GT(len,RDLC_OK) << "rdlc: write failed";
 
     // 接收
-    EXPECT_CALL(ReadWriteMock, OnParsed(::testing::_,EqWithMessage(expected,sizeof(expected)),sizeof(expected)));
+    EXPECT_CALL(ReadWriteMock, OnParsed(::testing::_,::testing::_,EqWithMessage(expected,sizeof(expected)),sizeof(expected)));
     int err = xRdlcReadBytes(handle,txBuf,len);
     ASSERT_GT(err,RDLC_NOT_FINISH) << "rdlc: read not finish "<< err;
 
@@ -90,15 +91,16 @@ extern "C" {
     static ::testing::StrictMock<RdlcMockCallback_t> PieceMock;
 }
 
-extern "C" int RdlcTestPieceCallback(Rdlc_t handle,const uint8_t* data,uint16_t size)
+extern "C" int RdlcTestPieceCallback(Rdlc_t handle,RdlcAddr_t addr,const uint8_t* data,uint16_t size)
 {
-    PieceMock.OnParsed(handle,data, size);
+    PieceMock.OnParsed(handle,addr,data,size);
     return 0;
 }
 
 TEST(RdlcTestBasic, EachTwoRead)
 {
     const uint8_t expected[] = {0x1,0x2,0x3,0x4,0x5,0x6,0x7,0x8,0x9,0xA,0xB,0xC,0xD};
+    const RdlcAddr_t expectAddr = {.srcAddr = 0x01, .dstAddr = 0x02};
 
     // 创建实例
     static const RdlcConfig_t config = {
@@ -118,11 +120,11 @@ TEST(RdlcTestBasic, EachTwoRead)
 
     // 发送
     uint8_t txBuf[40];
-    int len = xRdlcWriteBytes(handle,(const uint8_t*)expected,sizeof(expected),txBuf,sizeof(txBuf));
+    int len = xRdlcWriteBytes(handle,expectAddr,(const uint8_t*)expected,sizeof(expected),txBuf,sizeof(txBuf));
     ASSERT_GT(len,RDLC_OK) << "rdlc: write failed";
 
     // 多次接收，一次1字节
-    EXPECT_CALL(PieceMock,OnParsed(::testing::_,EqWithMessage(expected,sizeof(expected)),sizeof(expected)))
+    EXPECT_CALL(PieceMock,OnParsed(::testing::_,::testing::_,EqWithMessage(expected,sizeof(expected)),sizeof(expected)))
         .Times(1)
         .WillOnce(::testing::Return(0));
 
@@ -149,15 +151,16 @@ extern "C" {
     static ::testing::StrictMock<RdlcMockCallback_t> ContinueMock;
 }
 
-extern "C" int RdlcTestContinueCallback(Rdlc_t handle,const uint8_t* data,uint16_t size)
+extern "C" int RdlcTestContinueCallback(Rdlc_t handle,RdlcAddr_t addr,const uint8_t* data,uint16_t size)
 {
-    ContinueMock.OnParsed(handle,data, size);
+    ContinueMock.OnParsed(handle,addr,data,size);
     return 0;
 }
 
 TEST(RdlcTestBasic, ContinueRead)
 {
     const uint8_t expected[] = {0x1,0x2,0x3,0x4,0x5,0x6,0x7,0x8,0x9,0xA,0xB,0xC,0xD};
+    const RdlcAddr_t expectAddr = {.srcAddr = 0x01, .dstAddr = 0x02};
 
     // 创建实例
     static const RdlcConfig_t config = {
@@ -177,11 +180,11 @@ TEST(RdlcTestBasic, ContinueRead)
 
     // 发送
     uint8_t txBuf[40];
-    int len = xRdlcWriteBytes(handle,(const uint8_t*)expected,sizeof(expected),txBuf,sizeof(txBuf));
+    int len = xRdlcWriteBytes(handle,expectAddr,(const uint8_t*)expected,sizeof(expected),txBuf,sizeof(txBuf));
     ASSERT_GT(len,RDLC_OK) << "rdlc: write failed";
 
     // 多次接收，一次1字节
-    EXPECT_CALL(ContinueMock, OnParsed(::testing::_,EqWithMessage(expected,sizeof(expected)),sizeof(expected)))
+    EXPECT_CALL(ContinueMock, OnParsed(::testing::_,::testing::_,EqWithMessage(expected,sizeof(expected)),sizeof(expected)))
         .Times(2)
         .WillOnce(::testing::Return(0));
 
@@ -213,9 +216,9 @@ extern "C" {
     static ::testing::StrictMock<RdlcMockCallback_t> ContinueVariMock;
 }
 
-extern "C" int RdlcTestContinueVariCallback(Rdlc_t handle,const uint8_t* data,uint16_t size)
+extern "C" int RdlcTestContinueVariCallback(Rdlc_t handle,RdlcAddr_t addr,const uint8_t* data,uint16_t size)
 {
-    ContinueVariMock.OnParsed(handle,data, size);
+    ContinueVariMock.OnParsed(handle,addr,data,size);
     return 0;
 }
 
@@ -223,6 +226,7 @@ TEST(RdlcTestBasic, ContinueVariRead)
 {
     const uint8_t expected[]  = {0x1,0x2,0x3,0x4,0x5,0x6,0x7,0x8,0x9,0xA,0xB,0xC,0xD};
     const uint8_t expected2[] = {0x1,0x2,0x3,0x4,0x5,0x6,0x7,0x8};
+    const RdlcAddr_t expectAddr = {.srcAddr = 0x01, .dstAddr = 0x02};
 
     // 创建实例
     static const RdlcConfig_t config = {
@@ -243,16 +247,16 @@ TEST(RdlcTestBasic, ContinueVariRead)
     // 发送
     uint8_t txBuf1[40];
     uint8_t txBuf2[40];
-    int len1 = xRdlcWriteBytes(handle,(const uint8_t*)expected,sizeof(expected),txBuf1,sizeof(txBuf1));
+    int len1 = xRdlcWriteBytes(handle,expectAddr,(const uint8_t*)expected,sizeof(expected),txBuf1,sizeof(txBuf1));
     ASSERT_GT(len1,RDLC_OK) << "rdlc: write failed 1";
-    int len2 = xRdlcWriteBytes(handle,(const uint8_t*)expected2,sizeof(expected2),txBuf2,sizeof(txBuf2));
+    int len2 = xRdlcWriteBytes(handle,expectAddr,(const uint8_t*)expected2,sizeof(expected2),txBuf2,sizeof(txBuf2));
     ASSERT_GT(len2,RDLC_OK) << "rdlc: write failed 2";
 
     // 多次接收
-    EXPECT_CALL(ContinueVariMock, OnParsed(::testing::_,EqWithMessage(expected,sizeof(expected)),sizeof(expected)))
+    EXPECT_CALL(ContinueVariMock, OnParsed(::testing::_,::testing::_,EqWithMessage(expected,sizeof(expected)),sizeof(expected)))
         .Times(1)
         .WillOnce(::testing::Return(0));
-    EXPECT_CALL(ContinueVariMock, OnParsed(::testing::_,EqWithMessage(expected2,sizeof(expected2)),sizeof(expected2)))
+    EXPECT_CALL(ContinueVariMock, OnParsed(::testing::_,::testing::_,EqWithMessage(expected2,sizeof(expected2)),sizeof(expected2)))
         .Times(1)
         .WillOnce(::testing::Return(0));
 
@@ -275,6 +279,7 @@ TEST(RdlcTestBasic, ContinueVariRead)
 TEST(RdlcTestCritical, WriteFail)
 {
     const uint8_t expected[]  = {0x1,0x2,0x3,0x4,0x5,0x6,0x7,0x8,0x9,0xA,0xB,0xC,0xD};
+    const RdlcAddr_t expectAddr = {.srcAddr = 0x01, .dstAddr = 0x02};
 
     // 创建实例
     static const RdlcConfig_t config = {
@@ -296,11 +301,11 @@ TEST(RdlcTestCritical, WriteFail)
     int len;
 
     // 少一个发送
-    len = xRdlcWriteBytes(handle,(const uint8_t*)expected,sizeof(expected),txBuf,sizeof(txBuf));
+    len = xRdlcWriteBytes(handle,expectAddr,(const uint8_t*)expected,sizeof(expected),txBuf,sizeof(txBuf));
     ASSERT_GT(len,RDLC_OK) << "rdlc: write failed less 1";
 
     // 恰好发送
-    int len2 = xRdlcWriteBytes(handle,(const uint8_t*)expected,sizeof(expected),txBuf,sizeof(txBuf));
+    int len2 = xRdlcWriteBytes(handle,expectAddr,(const uint8_t*)expected,sizeof(expected),txBuf,sizeof(txBuf));
     ASSERT_GT(len,RDLC_OK) << "rdlc: write failed 2";
 
     // 多一个发送

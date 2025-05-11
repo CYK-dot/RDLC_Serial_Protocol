@@ -25,7 +25,7 @@
 /**
  *@brief RDLC对象的private成员
 **/
-typedef struct {
+typedef struct{
     uint8_t stateParse;
     uint8_t stateEscape;
 
@@ -37,16 +37,18 @@ typedef struct {
 
     uint16_t payloadMaxSize;
     uint16_t payloadMaxEscapeSize;
+
     RdlcOnParse_fptr cbParsed;
     RdlcOnError_fptr cbError;
     RdlcPort_t port;
     RdlcLogLevel_t logLevel;
-} RdlcStaticHandle_t;
+}RdlcStaticHandle_t;
 
 /**
  *@brief 日志调用
  *@addtogroup 支撑功能
 **/
+#if RDLC_LOG_ENABLE == 1
 static inline void Log(RdlcStaticHandle_t *handle,RdlcLogLevel_t level,const char *fmt, ...)
 {
     if (handle == NULL || handle->port.portPrintf == NULL)
@@ -57,6 +59,9 @@ static inline void Log(RdlcStaticHandle_t *handle,RdlcLogLevel_t level,const cha
         handle->port.portPrintf(level,fmt,args);
     va_end(args);
 }
+#else
+#define Log(...)  ((void)0)
+#endif
 /**
  *@brief CRC16(0xA001)计算
  *@addtogroup 支撑功能
@@ -122,7 +127,6 @@ static inline uint16_t prvGetCrc16(const uint8_t* data, size_t length)
 }
 #endif
 
-
 /**
  *@brief 复位接收缓冲区
  *@addtogroup 接收缓冲区操作
@@ -154,18 +158,30 @@ static inline int prvRxBufferFeed(RdlcStaticHandle_t *handle,uint8_t data)
 **/
 static inline uint16_t prvRxBufferGetPayloadLen(RdlcStaticHandle_t *handle)
 {
-    // 接收缓冲区内的结构：载荷长度 载荷 CRC16
-    uint16_t res = (((uint16_t)handle->rxBuf[1])<<8) | ((uint16_t)handle->rxBuf[0]);
+    // 接收缓冲区内的结构：源地址 目的地址 载荷长度 载荷 CRC16
+    uint16_t res = (((uint16_t)handle->rxBuf[3])<<8) | ((uint16_t)handle->rxBuf[2]);
     return res;
 }
 /**
- *@brief 从完整接收的缓冲区中读取载荷长度字段
+ *@brief 从完整接收的缓冲区中读取地址字段
+ *@addtogroup 接收缓冲区操作
+**/
+static inline RdlcAddr_t prvRxBufferGetAddr(RdlcStaticHandle_t *handle)
+{
+    // 接收缓冲区内的结构：源地址 目的地址 载荷长度 载荷 CRC16
+    RdlcAddr_t retval;
+    retval.srcAddr = handle->rxBuf[0];
+    retval.dstAddr = handle->rxBuf[1];
+    return retval;
+}
+/**
+ *@brief 从完整接收的缓冲区中读取CRC字段所在的下标
  *@addtogroup 接收缓冲区操作
 **/
 static inline uint16_t prvRxBufferGetCrcIndex(RdlcStaticHandle_t *handle)
 {
-    // 接收缓冲区内的结构：载荷长度 载荷 CRC16
-    uint16_t res = 2 + prvRxBufferGetPayloadLen(handle);
+    // 接收缓冲区内的结构：源地址 目的地址 载荷长度 载荷 CRC16
+    uint16_t res = 4 + prvRxBufferGetPayloadLen(handle);
     return res;
 }
 /**
@@ -174,7 +190,8 @@ static inline uint16_t prvRxBufferGetCrcIndex(RdlcStaticHandle_t *handle)
 **/
 static inline uint8_t *prvRxBufferGetPayload(RdlcStaticHandle_t *handle)
 {
-    return &(handle->rxBuf[2]);
+    // 接收缓冲区内的结构：源地址 目的地址 载荷长度 载荷 CRC16
+    return &(handle->rxBuf[4]);
 }
 /**
  *@brief 从完整接收的缓冲区中读取CRC字段
@@ -183,7 +200,7 @@ static inline uint8_t *prvRxBufferGetPayload(RdlcStaticHandle_t *handle)
 static inline uint16_t prvRxBufferGetCrcFromFrame(RdlcStaticHandle_t *handle)
 {
     uint16_t payloadSize = prvRxBufferGetPayloadLen(handle);
-    uint16_t res = (((uint16_t)handle->rxBuf[payloadSize+3])<<8) | ((uint16_t)handle->rxBuf[payloadSize+2]);
+    uint16_t res = (((uint16_t)handle->rxBuf[payloadSize+5])<<8) | ((uint16_t)handle->rxBuf[payloadSize+4]);
 }
 /**
  *@brief 从完整接收的缓冲区中计算CRC字段
@@ -200,7 +217,7 @@ static inline uint16_t prvRxBufferGetCrcFromCalc(RdlcStaticHandle_t *handle)
 **/
 static inline int prvRxBufferEstimateSize(uint16_t payloadMaxSize)
 {
-    return 2 + payloadMaxSize + 2;// 载荷长度 + 载荷 + CRC
+    return 4 + payloadMaxSize + 2;// 地址 + 载荷长度 + 载荷 + CRC
 }
 /**
  *@brief 给定接收缓冲区的长度，获取最大允许的协议参数
@@ -208,7 +225,7 @@ static inline int prvRxBufferEstimateSize(uint16_t payloadMaxSize)
 **/
 static inline int prvRxBufferEstimateMaxPayloadSize(uint16_t bufferSize)
 {
-    return bufferSize - 4;
+    return bufferSize - 6;
 }
 /**
  *@brief 转义写入发送缓冲区(帧中数据)
@@ -261,15 +278,19 @@ static inline int prvTxBufferFeedFrame(RdlcStaticHandle_t *handle,uint8_t *buffe
  *@brief 在发送缓冲区中的指定位置写入帧头
  *@addtogroup 发送缓冲区操作
 **/
-static inline int prvTxBufferFeedHead(RdlcStaticHandle_t *handle,uint8_t *buffer,uint16_t size,uint16_t *iter,uint16_t payloadSize,uint8_t ctrlByte)
+static inline int prvTxBufferFeedHead(RdlcStaticHandle_t *handle,RdlcAddr_t addr,uint8_t *buffer,uint16_t size,uint16_t *iter,uint16_t payloadSize,uint8_t ctrlByte)
 {
     int err;
     // 包头
     err = prvTxBufferFeedFrame(handle,buffer,size,iter,BYTE_HEAD);
     if (err != RDLC_OK) return err;
 
-    // 控制字节
-    err = prvTxBufferFeedCommon(handle,buffer,size,iter,ctrlByte);
+    // 源地址
+    err = prvTxBufferFeedCommon(handle,buffer,size,iter,addr.srcAddr);
+    if (err != RDLC_OK) return err;
+
+    // 目的地址
+    err = prvTxBufferFeedCommon(handle,buffer,size,iter,addr.dstAddr);
     if (err != RDLC_OK) return err;
 
     // 载荷长度
@@ -329,8 +350,9 @@ static inline int prvTxBufferFeedTail(RdlcStaticHandle_t *handle,uint8_t *buffer
 **/
 static inline int prvTxBufferEstimateSize(uint16_t msgMaxSize,uint16_t msgMaxEscapeSize)
 {
-    // 0xFF 0xC0 CTRL 0xFF LENL 0xFF LENH  0xFF CRCL 0xFF CRCH 0xFF 0x0C
-    return 7 + msgMaxSize + msgMaxEscapeSize + 6;// 最大转义头 + 数据 + 转义 + 最大转义尾
+    // 0xFF 0xC0 0xFF SRC 0xFF DST 0xFF LENL 0xFF LENH
+    // 0xFF CRCL 0xFF CRCH 0xFF 0x0C
+    return 10 + msgMaxSize + msgMaxEscapeSize + 6;// 最大转义头 + 数据 + 转义 + 最大转义尾
 }
 /**
  *@brief 给定发送缓冲区的长度，获取最大允许的协议参数
@@ -338,7 +360,7 @@ static inline int prvTxBufferEstimateSize(uint16_t msgMaxSize,uint16_t msgMaxEsc
 **/
 static inline int prvTxBufferEstimateMessageSize(uint16_t bufferSize)
 {
-    return bufferSize - 13;
+    return bufferSize - 16;
 }
 /**
  *@brief 转义状态机
@@ -396,22 +418,27 @@ static inline int prvRxFsmParse(RdlcStaticHandle_t *handle,uint8_t byte)
             Log(handle,RDLC_LOG_DEBUG,"state=WaitHead,read=%#hhX",byte);
 
             if (byte == BYTE_HEAD)
-                handle->stateParse = RDLC_STATE_PARSE_GET_CTRL;
+                handle->stateParse = RDLC_STATE_PARSE_GET_SRCADDR;
         break;
 
-        // 等待控制字节（暂未使用）
-        case RDLC_STATE_PARSE_GET_CTRL:
-            Log(handle,RDLC_LOG_DEBUG,"state=WaitCtrl,read=%#hhX",byte);
+        // 等待源地址
+        case RDLC_STATE_PARSE_GET_SRCADDR:
+            Log(handle,RDLC_LOG_DEBUG,"state=WaitSrcAddr,read=%#hhX",byte);
+            prvRxBufferFeed(handle,byte);
+            handle->stateParse = RDLC_STATE_PARSE_GET_DSTADDR;
+        break;
 
+        // 等待目标地址
+        case RDLC_STATE_PARSE_GET_DSTADDR:
+            Log(handle,RDLC_LOG_DEBUG,"state=WaitDstAddr,read=%#hhX",byte);
+            prvRxBufferFeed(handle,byte);
             handle->stateParse = RDLC_STATE_PARSE_GET_LENL;
         break;
 
         // 等待载荷长度低八位
         case RDLC_STATE_PARSE_GET_LENL:
             Log(handle,RDLC_LOG_DEBUG,"state=WaitPayloadLenL,read=%#hhX",byte);
-
             prvRxBufferFeed(handle,byte);
-
             handle->stateParse = RDLC_STATE_PARSE_GET_LENH;
         break;
 
@@ -465,7 +492,7 @@ static inline int prvRxFsmParse(RdlcStaticHandle_t *handle,uint8_t byte)
                 if (handle->cbParsed == NULL)
                     Log(handle,RDLC_LOG_DEBUG,"crc pass but no callback specified");
                 else {
-                    handle->cbParsed(handle,prvRxBufferGetPayload(handle),prvRxBufferGetPayloadLen(handle));
+                    handle->cbParsed(handle,prvRxBufferGetAddr(handle),prvRxBufferGetPayload(handle),prvRxBufferGetPayloadLen(handle));
                     Log(handle,RDLC_LOG_DEBUG,"crc pass and callback");
                 }
                 prvRxBufferReset(handle);
@@ -580,14 +607,16 @@ int xRdlcReadBytes(Rdlc_t protoHandle, uint8_t *buffer, uint16_t size)
  * @brief 对原始数据进行转义和封包
  *
  * @param protoHandle RDLC实例
+ * @param addr 目的地址和源地址
  * @param payload 原始数据所在地址
  * @param payloadSize 原始数据长度
  * @param frameBuf 封包后的数据要放在什么位置
  * @param frameMaxSize 允许封包后的最大长度
  * @return int 封包后的RDLC数据包长度
  */
-int xRdlcWriteBytes(Rdlc_t protoHandle, const uint8_t *payload, uint16_t payloadSize,
-                    uint8_t *frameBuf, uint16_t frameMaxSize)
+int xRdlcWriteBytes(Rdlc_t protoHandle,RdlcAddr_t addr,
+                    const uint8_t *payload,uint16_t payloadSize,
+                    uint8_t *frameBuf,uint16_t frameMaxSize)
 {
     RdlcStaticHandle_t *handle = (RdlcStaticHandle_t*)protoHandle;
     int err;
@@ -605,7 +634,7 @@ int xRdlcWriteBytes(Rdlc_t protoHandle, const uint8_t *payload, uint16_t payload
     uint16_t itr = 0;
     uint16_t crc16 = prvGetCrc16(payload,payloadSize);
 
-    err = prvTxBufferFeedHead(handle,frameBuf,frameMaxSize,&itr,payloadSize,0x0);
+    err = prvTxBufferFeedHead(handle,addr,frameBuf,frameMaxSize,&itr,payloadSize,0x0);
     if (err != RDLC_OK) return err;
 
     err = prvTxBufferFeedPayload(handle,frameBuf,frameMaxSize,&itr,payload,payloadSize);
