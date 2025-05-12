@@ -8,12 +8,12 @@ extern "C" {
 #include <stddef.h>
 #include <stdarg.h>
 
-/// ≈‰÷√∫Í
-#define RDLC_CRC16_USE_CALCULATE  0 ///< ‘⁄œﬂº∆À„ªÒ»°CRC
-#define RDLC_CRC16_USE_TABLE      1 ///<  π”√≤È±Ì∑®ªÒ»°CRC£¨ø’º‰ªª ±º‰
-#define RDLC_LOG_ENABLE           1 ///<  «∑Ò∆Ù”√»’÷æ
+/// ÈÖçÁΩÆÂÆè
+#define RDLC_CRC16_USE_CALCULATE  0 ///< Âú®Á∫øËÆ°ÁÆóËé∑ÂèñCRC
+#define RDLC_CRC16_USE_TABLE      1 ///< ‰ΩøÁî®Êü•Ë°®Ê≥ïËé∑ÂèñCRCÔºåÁ©∫Èó¥Êç¢Êó∂Èó¥
+#define RDLC_LOG_ENABLE           1 ///< ÊòØÂê¶ÂêØÁî®Êó•Âøó
 
-/// »’÷æ≤„¥Œ
+/// Êó•ÂøóÂ±ÇÊ¨°
 typedef enum{
     RDLC_LOG_DEBUG = 0,
     RDLC_LOG_INFO  = 1,
@@ -22,7 +22,7 @@ typedef enum{
     RDLC_LOG_NONE  = 4,
 }RdlcLogLevel_t;
 
-/// ¥ÌŒÛ¬Î
+/// ÈîôËØØÁ†Å
 #define RDLC_OK 0
 #define RDLC_NOT_FINISH -1
 #define RDLC_ERR_NOT_ALLOWED -2
@@ -30,46 +30,46 @@ typedef enum{
 #define RDLC_ERR_INVALID_ARG -4
 #define RDLC_ERR_BUFFER_TOO_SHORT -5
 
-// ◊™“Â◊¥Ã¨
-#define RDLC_STATE_ESCAPE_WAIT 0 ///< Œﬁ–Ë◊™“Â
-#define RDLC_STATE_ESCAPE_GET  1 ///< µ»¥˝◊™“Â
-// Ω‚Œˆ◊¥Ã¨
-#define RDLC_STATE_PARSE_WAIT_HEAD 0   ///< µ»¥˝÷°Õ∑
-#define RDLC_STATE_PARSE_GET_SRCADDR 1 ///< µ»¥˝‘¥µÿ÷∑
-#define RDLC_STATE_PARSE_GET_DSTADDR 2 ///< µ»¥˝ƒøµƒµÿ÷∑
-#define RDLC_STATE_PARSE_GET_LENL 3    ///< µ»¥˝‘ÿ∫…≥§∂»µÕ∞ÀŒª
-#define RDLC_STATE_PARSE_GET_LENH 4    ///< µ»¥˝‘ÿ∫…≥§∂»∏ﬂ∞ÀŒª
-#define RDLC_STATE_PARSE_GET_PAYLOAD 5 ///< µ»¥˝‘ÿ∫…
-#define RDLC_STATE_PARSE_GET_CRCL 6    ///< µ»¥˝–£—È¬ÎµÕ∞ÀŒª
-#define RDLC_STATE_PARSE_GET_CRCH 7    ///< µ»¥˝–£—È¬Î∏ﬂ∞ÀŒª
-#define RDLC_STATE_PARSE_GET_TAIL 8    ///< µ»¥˝÷°Œ≤
+// ËΩ¨‰πâÁä∂ÊÄÅ
+#define RDLC_STATE_ESCAPE_WAIT 0 ///< Êó†ÈúÄËΩ¨‰πâ
+#define RDLC_STATE_ESCAPE_GET  1 ///< Á≠âÂæÖËΩ¨‰πâ
+// Ëß£ÊûêÁä∂ÊÄÅ
+#define RDLC_STATE_PARSE_WAIT_HEAD 0   ///< Á≠âÂæÖÂ∏ßÂ§¥
+#define RDLC_STATE_PARSE_GET_SRCADDR 1 ///< Á≠âÂæÖÊ∫êÂú∞ÂùÄ
+#define RDLC_STATE_PARSE_GET_DSTADDR 2 ///< Á≠âÂæÖÁõÆÁöÑÂú∞ÂùÄ
+#define RDLC_STATE_PARSE_GET_LENL 3    ///< Á≠âÂæÖËΩΩËç∑ÈïøÂ∫¶‰ΩéÂÖ´‰Ωç
+#define RDLC_STATE_PARSE_GET_LENH 4    ///< Á≠âÂæÖËΩΩËç∑ÈïøÂ∫¶È´òÂÖ´‰Ωç
+#define RDLC_STATE_PARSE_GET_PAYLOAD 5 ///< Á≠âÂæÖËΩΩËç∑
+#define RDLC_STATE_PARSE_GET_CRCL 6    ///< Á≠âÂæÖÊ†°È™åÁ†Å‰ΩéÂÖ´‰Ωç
+#define RDLC_STATE_PARSE_GET_CRCH 7    ///< Á≠âÂæÖÊ†°È™åÁ†ÅÈ´òÂÖ´‰Ωç
+#define RDLC_STATE_PARSE_GET_TAIL 8    ///< Á≠âÂæÖÂ∏ßÂ∞æ
 
-// µ◊≤„Ω”ø⁄∂®“Â
+// Â∫ïÂ±ÇÊé•Âè£ÂÆö‰πâ
 typedef void* (*RdlcMalloc_fptr)(size_t);
 typedef void  (*RdlcFree_fptr)  (void*);
 typedef int   (*RdlcPrintf_fptr)(RdlcLogLevel_t level,const char *fmt,va_list args);
 
-/// µÿ÷∑
+/// Âú∞ÂùÄ
 typedef struct{
-    uint8_t srcAddr; ///< ‘¥µÿ÷∑
-    uint8_t dstAddr; ///< ƒøµƒµÿ÷∑
+    uint8_t srcAddr; ///< Ê∫êÂú∞ÂùÄ
+    uint8_t dstAddr; ///< ÁõÆÁöÑÂú∞ÂùÄ
 }RdlcAddr_t;
 
-/// ¿‡∂®“Â
+/// Á±ªÂÆö‰πâ
 typedef void* Rdlc_t;
 
-// ª˘±æΩ”ø⁄¿‡–Õ∂®“Â
-typedef int (*RdlcOnParse_fptr) (Rdlc_t,RdlcAddr_t,const uint8_t*,uint16_t);///< (æ‰±˙,µÿ÷∑,‘ÿ∫…,≥§∂»)
+// Âü∫Êú¨Êé•Âè£Á±ªÂûãÂÆö‰πâ
+typedef int (*RdlcOnParse_fptr) (Rdlc_t,RdlcAddr_t,const uint8_t*,uint16_t);///< (Âè•ÊüÑ,Âú∞ÂùÄ,ËΩΩËç∑,ÈïøÂ∫¶)
 typedef int (*RdlcOnError_fptr) (Rdlc_t,int);
 
-/// Ω”ø⁄¿‡–Õ
+/// Êé•Âè£Á±ªÂûã
 typedef struct{
     RdlcMalloc_fptr portMalloc;
     RdlcFree_fptr portFree;
     RdlcPrintf_fptr portPrintf;
 }RdlcPort_t;
 
-/// ∂‘œÛ∂®“Â
+/// ÂØπË±°ÂÆö‰πâ
 typedef struct{
     uint8_t stateParse;
     uint8_t stateEscape;
@@ -89,7 +89,7 @@ typedef struct{
     RdlcLogLevel_t logLevel;
 }RdlcStaticHandle_t;
 
-/// ≈‰÷√¿‡–Õ
+/// ÈÖçÁΩÆÁ±ªÂûã
 typedef struct{
     uint16_t msgMaxSize;
     uint16_t msgMaxEscapeSize;
@@ -97,30 +97,28 @@ typedef struct{
     RdlcOnError_fptr cbError;
 }RdlcConfig_t;
 
-
-
-// ππ‘Ï∫Ø ˝∫ÕŒˆππ∫Ø ˝
+// ÊûÑÈÄ†ÂáΩÊï∞ÂíåÊûêÊûÑÂáΩÊï∞
 Rdlc_t xRdlcCreate(const RdlcConfig_t *config,const RdlcPort_t *port);
 Rdlc_t xRdlcCreateStatic(const RdlcConfig_t *config,const RdlcPort_t *port,RdlcStaticHandle_t* staticHandle,uint8_t *rxBuffer,uint16_t rxBufferSize);
 void   vRdlcDestroy(Rdlc_t protoHandle);
 
-// ∂‘œÛ∑Ω∑®1£∫Ω‚∞¸
+// ÂØπË±°ÊñπÊ≥ï1ÔºöËß£ÂåÖ
 int xRdlcReadByte(Rdlc_t protoHandle,uint8_t byte);
 int xRdlcReadBytes(Rdlc_t protoHandle,uint8_t *buffer,uint16_t size);
 
-// ∂‘œÛ∑Ω∑®2£∫∑‚∞¸
+// ÂØπË±°ÊñπÊ≥ï2ÔºöÂ∞ÅÂåÖ
 int xRdlcWriteBytes(Rdlc_t protoHandle,RdlcAddr_t addr,
                     const uint8_t *payload,uint16_t payloadSize,
                     uint8_t *frameBuf,uint16_t frameMaxSize);
 
-// ∂‘œÛ∑Ω∑®3£∫¡˜øÿ
+// ÂØπË±°ÊñπÊ≥ï3ÔºöÊµÅÊéß
 int xRdlcReset(Rdlc_t protoHandle);
 
-// ∂‘œÛ∑Ω∑®4£∫π§◊˜◊¥Ã¨
+// ÂØπË±°ÊñπÊ≥ï4ÔºöÂ∑•‰ΩúÁä∂ÊÄÅ
 int xRdlcGetParseState(Rdlc_t protoHandle);
 int xRdlcGetEscapeState(Rdlc_t protoHandle);
 
-// ∂‘œÛ≥…‘±1£∫»’÷æ≤„¥Œ
+// ÂØπË±°ÊàêÂëò1ÔºöÊó•ÂøóÂ±ÇÊ¨°
 RdlcLogLevel_t xRdlcGetLogLevel(Rdlc_t protoHandle);
 void vRdlcSetLogLevel(Rdlc_t protoHandle,RdlcLogLevel_t level);
 

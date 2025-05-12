@@ -8,7 +8,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
-#include "../my_components/rdlc/rdlc.h"
+#include "rdlc.h"
 
 
 /**

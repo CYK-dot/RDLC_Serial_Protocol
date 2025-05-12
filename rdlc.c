@@ -11,11 +11,9 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
-
 #define BYTE_ESCAPE 0xFF /// 转义字符
 #define BYTE_HEAD   0xC0 /// 包头
 #define BYTE_TAIL   0x0C /// 包尾
-
 
 #if (RDLC_CRC16_USE_CALCULATE == 1) && (RDLC_CRC16_USE_TABLE == 1)
     #error "RDLC: you can only choose one of the crc16 methods."
@@ -182,6 +180,7 @@ static inline uint16_t prvRxBufferGetCrcFromFrame(RdlcStaticHandle_t *handle)
 {
     uint16_t payloadSize = prvRxBufferGetPayloadLen(handle);
     uint16_t res = (((uint16_t)handle->rxBuf[payloadSize+5])<<8) | ((uint16_t)handle->rxBuf[payloadSize+4]);
+    return res;
 }
 /**
  *@brief 从完整接收的缓冲区中计算CRC字段
@@ -388,6 +387,7 @@ static inline int prvRxFsmEscape(uint8_t *stateEscape,uint8_t byte,bool *isFrame
             }
         break;
     }
+    return RDLC_NOT_FINISH;
 }
 /**
  *@brief  带有冗余越界保护的解析状态机
@@ -516,7 +516,7 @@ Rdlc_t xRdlcCreate(const RdlcConfig_t *config, const RdlcPort_t *port)
     memset(handle, 0, sizeof(RdlcStaticHandle_t));
 
     handle->rxBufSize = prvRxBufferEstimateSize(config->msgMaxSize);
-    handle->rxBuf = port->portMalloc(handle->rxBufSize);
+    handle->rxBuf = (uint8_t *)port->portMalloc(handle->rxBufSize);
     if (!handle->rxBuf) {
         port->portFree(handle);
         return NULL;
@@ -669,7 +669,7 @@ int xRdlcWriteBytes(Rdlc_t protoHandle,RdlcAddr_t addr,
     err = prvTxBufferFeedHead(handle,addr,frameBuf,frameMaxSize,&itr,payloadSize,0x0);
     if (err != RDLC_OK) return err;
 
-    err = prvTxBufferFeedPayload(handle,frameBuf,frameMaxSize,&itr,payload,payloadSize);
+    err = prvTxBufferFeedPayload(handle,frameBuf,frameMaxSize,&itr,(uint8_t*)payload,payloadSize);
     if (err != RDLC_OK) return err;
 
     err = prvTxBufferFeedTail(handle,frameBuf,frameMaxSize,&itr,crc16);
@@ -686,7 +686,7 @@ int xRdlcWriteBytes(Rdlc_t protoHandle,RdlcAddr_t addr,
  */
 void vRdlcReset(Rdlc_t protoHandle)
 {
-    if (!protoHandle) return -1;
+    if (!protoHandle) return;
     RdlcStaticHandle_t *handle = (RdlcStaticHandle_t*)protoHandle;
 
     memset(handle->rxBuf,0,handle->rxBufSize);
@@ -695,8 +695,6 @@ void vRdlcReset(Rdlc_t protoHandle)
     handle->stateEscape = 0;
     handle->stateParse = RDLC_STATE_PARSE_WAIT_HEAD;
     handle->stateEscape = RDLC_STATE_ESCAPE_WAIT;
-
-    return 0;
 }
 /**
  * @brief 获取RDLC实例的内部解析状态
@@ -706,7 +704,7 @@ void vRdlcReset(Rdlc_t protoHandle)
  */
 int xRdlcGetParseState(Rdlc_t protoHandle)
 {
-    if (!protoHandle) return -1;
+    if (!protoHandle) return RDLC_ERR_NOT_ALLOWED;
     RdlcStaticHandle_t *handle = (RdlcStaticHandle_t*)protoHandle;
     return handle->stateParse;
     return 0;
@@ -719,7 +717,7 @@ int xRdlcGetParseState(Rdlc_t protoHandle)
  */
 int xRdlcGetEscapeState(Rdlc_t protoHandle)
 {
-    if (!protoHandle) return -1;
+    if (!protoHandle) return RDLC_ERR_NOT_ALLOWED;
     RdlcStaticHandle_t *handle = (RdlcStaticHandle_t*)protoHandle;
     return handle->stateEscape;
     return 0;
@@ -743,7 +741,7 @@ RdlcLogLevel_t xRdlcGetLogLevel(Rdlc_t protoHandle)
  */
 void vRdlcSetLogLevel(Rdlc_t protoHandle,RdlcLogLevel_t level)
 {
-    if (!protoHandle) return -1;
+    if (!protoHandle) return;
     RdlcStaticHandle_t *handle = (RdlcStaticHandle_t*)protoHandle;
     handle->logLevel = level;
 }
