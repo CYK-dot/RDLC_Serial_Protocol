@@ -1,3 +1,9 @@
+/**
+ * @file rdlc.h
+ * @brief 通用串行通信RDLC协议
+ * 
+ */
+
 #pragma once
 
 #ifdef __cplusplus
