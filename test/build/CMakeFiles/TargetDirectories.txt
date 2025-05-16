@@ -1,0 +1,4 @@
+/mnt/d/学习/c测试/utest/googleTest/my_components/rdlc/test/build/CMakeFiles/rdlc.dir
+/mnt/d/学习/c测试/utest/googleTest/my_components/rdlc/test/build/CMakeFiles/test.dir
+/mnt/d/学习/c测试/utest/googleTest/my_components/rdlc/test/build/CMakeFiles/edit_cache.dir
+/mnt/d/学习/c测试/utest/googleTest/my_components/rdlc/test/build/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,1 @@
+/usr/bin/c++  -Wall CMakeFiles/test.dir/rdlcTest.cpp.o CMakeFiles/test.dir/rdlcCriticalTest.cpp.o -o test  librdlc.a ../lib/libgtest.a ../lib/libgmock.a ../lib/libgtest_main.a ../lib/libgmock_main.a -lpthread 

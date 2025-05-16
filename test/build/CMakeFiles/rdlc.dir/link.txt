@@ -1,0 +1,2 @@
+/usr/bin/ar qc librdlc.a CMakeFiles/rdlc.dir/mnt/d/学习/c测试/utest/googleTest/my_components/rdlc/rdlc.c.o
+/usr/bin/ranlib librdlc.a

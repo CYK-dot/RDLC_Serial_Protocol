@@ -5,8 +5,11 @@
 #include <string.h>
 #include <unistd.h>
 
-#define RX_BUF_SIZE 256
-#define TX_BUF_SIZE 256
+#define TX_MSG_MAX_SIZE        3
+#define TX_MSG_MAX_ESCAPE_SIZE 3
+#define TX_MAX_BUF_SIZE        RDLC_GET_FRAME_SIZE(TX_MSG_MAX_SIZE,TX_MSG_MAX_ESCAPE_SIZE)
+#define SRC_PORT               0x01
+#define DST_PORT               0x02
 
 // ========== 回调函数 ==========
 int onParsed(Rdlc_t handle, RdlcAddr_t addr, const uint8_t *payload, uint16_t len) {
@@ -48,8 +51,8 @@ int main(int argc, char *argv[]) {
     static uint8_t rxBuf[RX_BUF_SIZE];
 
     RdlcConfig_t config = {
-        .msgMaxSize = 128,
-        .msgMaxEscapeSize = 128,
+        .msgMaxSize = TX_MSG_MAX_SIZE,
+        .msgMaxEscapeSize = TX_MSG_MAX_ESCAPE_SIZE,
         .cbParsed = onParsed,
         .cbError = onError
     };
@@ -72,26 +75,13 @@ int main(int argc, char *argv[]) {
     printf("[INFO] Listening on %s @ %d baud...\n", serial_device, baudrate);
 
     while (1) {
-        ssize_t n = read(fd, readBuf, sizeof(readBuf));
-        if (n > 0) {
-            for (int i = 0; i < n; ++i) {
-                xRdlcReadByte(proto, readBuf[i]);
-            }
+        uint8_t testPayload[] = {0x11, 0x22, 0x33};
+        RdlcAddr_t addr = {.srcAddr = SRC_PORT, .dstAddr = DST_PORT};
+        int len = xRdlcWriteBytes(proto, addr, testPayload, sizeof(testPayload), frameBuf, sizeof(frameBuf));
+        if (len > 0) {
+            write(fd, frameBuf, len);
+            printf("[SEND] %d bytes sent.\n", len);
         }
-
-        // 手动按需启用发送
-        static int sent = 0;
-        if (!sent) {
-            uint8_t testPayload[] = {0x11, 0x22, 0x33};
-            RdlcAddr_t addr = {.srcAddr = 0x01, .dstAddr = 0x02};
-            int len = xRdlcWriteBytes(proto, addr, testPayload, sizeof(testPayload), frameBuf, sizeof(frameBuf));
-            if (len > 0) {
-                write(fd, frameBuf, len);
-                printf("[SEND] %d bytes sent.\n", len);
-            }
-            sent = 1;
-        }
-
         usleep(10000);
     }
 
