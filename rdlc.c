@@ -633,9 +633,9 @@ void vRdlcFrameDestroy(Rdlc_t protoHandle,uint8_t *frame)
 {
     RdlcStaticHandle_t *handle = (RdlcStaticHandle_t *)protoHandle;
     if (!protoHandle || !frame) 
-        return RDLC_ERR_INVALID_ARG;
+        return;
     if (!(handle->port.portMalloc) || !(handle->port.portFree))
-        return RDLC_ERR_NOT_ALLOWED;
+        return;
 
     handle->port.portFree(frame);
 }
